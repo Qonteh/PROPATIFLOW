@@ -37,16 +37,17 @@ export async function POST(req: NextRequest) {
 
   // Insert into database
   try {
-    const { query } = await import("@/lib/db/mysql");
+    const { query } = await import("@/lib/db/neon");
     // Generate a UUID for document id
     const { v4: uuidv4 } = (await import("uuid"));
     const id = uuidv4();
     // If user is undefined, set user_id to null
     // No user context available, set userId to null
     let userId = null;
+    const now = new Date();
     await query(
-      `INSERT INTO documents (id, user_id, document_type, file_name, file_url, file_size, mime_type, is_verified, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())`,
-      [id, userId, document_type, file.name, file_url, file_size, mime_type]
+      `INSERT INTO "documents" ("id", "user_id", "document_type", "file_name", "file_url", "file_size", "mime_type", "is_verified", "created_at") VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8)`,
+      [id, userId, document_type, file.name, file_url, file_size, mime_type, now.toISOString()]
     );
     return NextResponse.json({ success: true, filename, file_url });
   } catch (err) {
