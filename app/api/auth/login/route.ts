@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
-import { queryOne, query } from "@/lib/db/mysql"
+import { query } from "@/lib/db/neon"
 import { createSession } from "@/lib/auth/session"
 
 interface DBUser {
@@ -28,18 +28,19 @@ export async function POST(request: NextRequest) {
 
     // Find user in database
     console.log("[LOGIN] Looking up user in database...")
-    const user = await queryOne<DBUser>(
-      `SELECT id, email, password_hash, first_name, last_name, phone, role, is_verified
-       FROM users WHERE email = ?`,
+    const result = await query(
+      `SELECT "id", "email", "password_hash", "first_name", "last_name", "phone", "role", "is_verified"
+       FROM "users" WHERE "email" = $1 LIMIT 1`,
       [email.toLowerCase()]
     )
 
-    if (!user) {
+    if (result.rows.length === 0) {
       console.log("[LOGIN] User not found:", email)
       return NextResponse.json({ message: "Invalid credentials" }, { status: 401 })
     }
-    console.log("[LOGIN] User found:", { id: user.id, email: user.email, role: user.role })
 
+    const user = result.rows[0] as DBUser
+    console.log("[LOGIN] User found:", { id: user.id, email: user.email, role: user.role })
 
     // IMPORTANT: Check if password exists
     if (!user.password_hash) {

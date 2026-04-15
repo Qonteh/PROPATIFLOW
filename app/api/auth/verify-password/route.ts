@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
-import { queryOne } from "@/lib/db/mysql";
+import { query } from "@/lib/db/neon";
 import bcrypt from "bcryptjs";
 
 export async function POST(request: NextRequest) {
@@ -13,16 +13,16 @@ export async function POST(request: NextRequest) {
     if (!password) {
       return NextResponse.json({ message: "Password required" }, { status: 400 });
     }
-    // Get user from DB
-    const user = await queryOne<any>(
-      `SELECT password_hash FROM users WHERE id = ?`,
+    // Get user from Neon
+    const result = await query(
+      `SELECT "password_hash" FROM "users" WHERE "id" = $1 LIMIT 1`,
       [session.userId]
     );
-    if (!user || !user.password_hash) {
+    if (result.rows.length === 0 || !result.rows[0].password_hash) {
       return NextResponse.json({ message: "User not found or no password set" }, { status: 404 });
     }
     // Compare password
-    const isValid = await bcrypt.compare(password, user.password_hash);
+    const isValid = await bcrypt.compare(password, result.rows[0].password_hash);
     if (!isValid) {
       return NextResponse.json({ success: false, message: "Incorrect password" }, { status: 200 });
     }

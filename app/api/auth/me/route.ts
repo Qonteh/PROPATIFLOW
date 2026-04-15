@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
-import { queryOne } from "@/lib/db/mysql"
+import { query } from "@/lib/db/neon"
 
 interface DBUser {
   id: string
@@ -54,26 +54,28 @@ export async function GET() {
       return NextResponse.json({ message: "Not authenticated" }, { status: 401 })
     }
 
-    // Get user from MySQL
-    const user = await queryOne<DBUser>(
-      `SELECT id, email, first_name, last_name, phone, role, is_verified, is_active, 
-              avatar_url, date_of_birth, address, city, state, country, created_at, last_login
-       FROM users WHERE id = ?`,
+    // Get user from Neon
+    const userResult = await query(
+      `SELECT "id", "email", "first_name", "last_name", "phone", "role", "is_verified", "is_active", 
+              "avatar_url", "date_of_birth", "address", "city", "state", "country", "created_at", "last_login"
+       FROM "users" WHERE "id" = $1 LIMIT 1`,
       [session.userId]
     )
 
-    if (!user) {
+    if (userResult.rows.length === 0) {
       return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
+
+    const user = userResult.rows[0] as DBUser
 
     if (!user.is_active) {
       return NextResponse.json({ message: "Account deactivated" }, { status: 403 })
     }
 
     // Get verification status
-    const verification = await queryOne<Verification>(
-      `SELECT verification_status, nin_verified, bvn_verified, id_verified
-       FROM verifications WHERE user_id = ?`,
+    const verificationResult = await query(
+      `SELECT "verification_status", "nin_verified", "bvn_verified", "id_verified"
+       FROM "verifications" WHERE "user_id" = $1 LIMIT 1`,
       [user.id]
     )
 
@@ -96,7 +98,7 @@ export async function GET() {
       country: user.country,
       created_at: user.created_at,
       last_login: user.last_login,
-      verification: verification
+      verification: verificationResult.rows.length > 0
         ? {
             status: verification.verification_status,
             nin_verified: verification.nin_verified,

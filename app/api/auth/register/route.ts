@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
-import { queryOne, insert } from "@/lib/db/mysql"
+import { query } from "@/lib/db/neon"
 import { createSession } from "@/lib/auth/session"
 
 export async function POST(request: NextRequest) {
@@ -29,12 +29,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user exists
-    const existingUser = await queryOne<{ id: string }>(
-      "SELECT id FROM users WHERE email = ?",
+    const existingUserResult = await query(
+      'SELECT "id" FROM "users" WHERE "email" = $1 LIMIT 1',
       [email.toLowerCase()]
     )
     
-    if (existingUser) {
+    if (existingUserResult.rows.length > 0) {
       return NextResponse.json({ message: "User already exists" }, { status: 400 })
     }
 
@@ -49,12 +49,13 @@ export async function POST(request: NextRequest) {
     // Generate user ID
     const userId = crypto.randomUUID()
 
-    // Create user in MySQL
+    // Create user in Neon
     console.log("[REGISTER] Creating user in database with ID:", userId)
-    await insert(
-      `INSERT INTO users (id, email, password_hash, first_name, last_name, phone, role, is_verified, is_active, avatar_url, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, TRUE, ?, NOW())`,
-      [userId, email.toLowerCase(), password_hash, firstName, lastName, phone_number || null, userRole, avatar_url || null]
+    const now = new Date().toISOString()
+    await query(
+      `INSERT INTO "users" ("id", "email", "password_hash", "first_name", "last_name", "phone", "role", "is_verified", "is_active", "avatar_url", "created_at", "updated_at")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [userId, email.toLowerCase(), password_hash, firstName, lastName, phone_number || null, userRole, false, true, avatar_url || null, now, now]
     )
     console.log("[REGISTER] User created successfully:", { userId, email, userRole })
 
