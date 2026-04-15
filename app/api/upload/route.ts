@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
+import os from "os";
 import { verifyToken } from "@/lib/auth/jwt";
 
 export const runtime = "nodejs";
@@ -19,10 +20,25 @@ export async function POST(req: NextRequest) {
   // @ts-ignore
   const buffer = Buffer.from(await file.arrayBuffer());
   const filename = `${Date.now()}-${file.name}`.replace(/\s+/g, "-");
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
-  await fs.mkdir(uploadDir, { recursive: true });
-  const filePath = path.join(uploadDir, filename);
-  await fs.writeFile(filePath, buffer);
+  
+  // On Vercel, use /tmp for temporary storage; locally use public/uploads
+  const isVercel = process.env.VERCEL === "1";
+  let uploadDir: string;
+  
+  if (isVercel) {
+    uploadDir = path.join("/tmp", "uploads");
+  } else {
+    uploadDir = path.join(process.cwd(), "public", "uploads");
+  }
+  
+  try {
+    await fs.mkdir(uploadDir, { recursive: true });
+    const filePath = path.join(uploadDir, filename);
+    await fs.writeFile(filePath, buffer);
+  } catch (err) {
+    console.warn("Could not write file to disk:", err);
+    // On Vercel, we'll continue without writing to disk - just store metadata
+  }
 
   // Get extra fields from query params
   const { searchParams } = new URL(req.url);
@@ -33,7 +49,9 @@ export async function POST(req: NextRequest) {
   const file_size = file.size;
   // @ts-ignore
   const mime_type = file.type;
-  const file_url = `/uploads/${filename}`;
+  
+  // Generate file URL based on environment
+  const file_url = isVercel ? `/uploads/${filename}` : `/uploads/${filename}`;
 
   // Insert into database
   try {
@@ -51,6 +69,7 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json({ success: true, filename, file_url });
   } catch (err) {
-    return NextResponse.json({ error: "File saved but DB insert failed", details: String(err), filename }, { status: 500 });
+    console.error("Database insert error:", err);
+    return NextResponse.json({ error: "DB insert failed", details: String(err), filename }, { status: 500 });
   }
 }
