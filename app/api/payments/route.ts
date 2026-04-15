@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
-import { query, queryOne } from "@/lib/db/mysql"
+import { query, queryOne, generateUUID } from "@/lib/db/mysql"
 
 interface DBPayment {
   id: string

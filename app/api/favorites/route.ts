@@ -22,12 +22,14 @@ export async function POST(req: NextRequest) {
   }
   try {
     if (action === "add") {
-      await db.query(
-        `INSERT IGNORE INTO favorites (user_id, property_id, created_at) VALUES (?, ?, NOW())`,
+      await execute(
+        `INSERT INTO favorites (user_id, property_id, created_at)
+         VALUES (?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT (user_id, property_id) DO NOTHING`,
         [userId, propertyId]
       );
     } else if (action === "remove") {
-      await db.query(
+      await execute(
         `DELETE FROM favorites WHERE user_id = ? AND property_id = ?`,
         [userId, propertyId]
       );

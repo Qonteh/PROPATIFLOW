@@ -6,6 +6,8 @@ interface DBProperty {
   id: string
   landlord_id: string
   title: string
+  reference?: string | null
+  location?: string | null
   description: string | null
   property_type: string
   status: string
@@ -23,6 +25,7 @@ interface DBProperty {
   parking_spaces: number
   amenities: string | null
   images: string | null
+  extra_features?: string | null
   available_from: string | null
   min_lease_months: number
   pet_policy: string
@@ -100,7 +103,7 @@ export async function GET(
       title: property.title,
       imageUrl: property.images ? JSON.parse(property.images)[0] : undefined,
       reference: property.reference,
-      price: property.rent_amount ? parseFloat(property.rent_amount) : undefined,
+      price: property.rent_amount ?? undefined,
       location: property.address || property.location || '',
       bedrooms: property.bedrooms,
       bathrooms: property.bathrooms,
