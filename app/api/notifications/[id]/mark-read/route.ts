@@ -4,10 +4,10 @@ import { execute } from "@/lib/db";
 // PATCH or POST /api/notifications/[id]/mark-read
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     if (!id) {
       return NextResponse.json(
@@ -31,7 +31,7 @@ export async function POST(
 // Also handle PATCH method if you want
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   return POST(request, { params });
 }

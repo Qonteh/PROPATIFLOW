@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   // Mock landlord data
   return NextResponse.json({
     success: true,
     landlord: {
-      id: params.id,
+      id,
       name: "John Mwangi",
       email: "john.mwangi@propertyflow.co.tz",
       phone: "+255 712 345 678",

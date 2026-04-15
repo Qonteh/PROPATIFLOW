@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { queryOne, execute } from "@/lib/db/mysql"
 
 // PATCH /api/leases/[id]
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const data = await request.json()
   // Only allow updating status or lease_document_url or signed_at
   const allowed = ["status", "lease_document_url", "signed_at"]
@@ -19,8 +19,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 }
 
 // GET /api/leases/[id]
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const lease = await queryOne(
     `SELECT * FROM leases WHERE id = ?`,
     [id]

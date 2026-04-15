@@ -33,10 +33,11 @@ const parseStringArray = (value: unknown): string[] => {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const landlordId = params.id
+    const { id } = await params
+    const landlordId = id
     const sql = `
       SELECT p.*, 
         CONCAT(u.first_name, ' ', u.last_name) as landlord_name,
