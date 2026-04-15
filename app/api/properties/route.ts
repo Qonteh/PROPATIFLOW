@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth/session"
-import { query, queryOne } from "@/lib/db/mysql" // Removed generateUUID
+import { query } from "@/lib/db/neon"
 
 interface DBProperty {
   id: string
@@ -48,62 +48,65 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search")
 
     let sql = `
-            SELECT p.*, 
-              CONCAT(u.first_name, ' ', u.last_name) as landlord_name,
-              u.phone as landlord_phone,
-              u.is_verified as landlord_verified,
-              u.avatar_url as landlord_avatar
-      FROM properties p
-      JOIN users u ON p.landlord_id = u.id
+      SELECT p.*, 
+        CONCAT(u."first_name", ' ', u."last_name") as landlord_name,
+        u."phone" as landlord_phone,
+        u."is_verified" as landlord_verified,
+        u."avatar_url" as landlord_avatar
+      FROM "properties" p
+      JOIN "users" u ON p."landlord_id" = u."id"
       WHERE 1=1
     `
     const params: any[] = []
+    let paramCount = 1
 
     // If landlord, show only their properties
     if (session?.role === "landlord") {
-      sql += " AND p.landlord_id = ?"
+      sql += ` AND p."landlord_id" = $${paramCount++}`
       params.push(session.userId)
       
       // If requesting only available properties
       if (searchParams.get("available") === "true") {
-        sql += " AND p.status = 'available'"
+        sql += " AND p.\"status\" = 'available'"
       }
     } else {
       // For tenants/public, show all published properties (regardless of status)
-      sql += " AND p.is_published = 1"
+      sql += " AND p.\"is_published\" = true"
     }
     console.log("[PROPERTIES API] SQL:", sql)
     console.log("[PROPERTIES API] Params:", params)
 
     // Apply filters
     if (city) {
-      sql += " AND p.city LIKE ?"
+      sql += ` AND p."city" ILIKE $${paramCount++}`
       params.push(`%${city}%`)
     }
     if (propertyType) {
-      sql += " AND p.property_type = ?"
+      sql += ` AND p."property_type" = $${paramCount++}`
       params.push(propertyType)
     }
     if (minRent) {
-      sql += " AND p.rent_amount >= ?"
+      sql += ` AND p."rent_amount" >= $${paramCount++}`
       params.push(parseFloat(minRent))
     }
     if (maxRent) {
-      sql += " AND p.rent_amount <= ?"
+      sql += ` AND p."rent_amount" <= $${paramCount++}`
       params.push(parseFloat(maxRent))
     }
     if (bedrooms) {
-      sql += " AND p.bedrooms >= ?"
+      sql += ` AND p."bedrooms" >= $${paramCount++}`
       params.push(parseInt(bedrooms))
     }
     if (search) {
-      sql += " AND (p.title LIKE ? OR p.address LIKE ? OR p.city LIKE ?)"
+      sql += ` AND (p."title" ILIKE $${paramCount++} OR p."address" ILIKE $${paramCount++} OR p."city" ILIKE $${paramCount++})`
       params.push(`%${search}%`, `%${search}%`, `%${search}%`)
+      paramCount += 3
     }
 
-    sql += " ORDER BY p.created_at DESC"
+    sql += " ORDER BY p.\"created_at\" DESC"
 
-    const properties = await query(sql, params)
+    const result = await query(sql, params)
+    const properties = result.rows
 
     // Parse JSON fields
     const formattedProperties = properties.map((p: any) => ({
@@ -156,6 +159,7 @@ export async function POST(request: NextRequest) {
     }
 
     const propertyId = crypto.randomUUID()
+    const now = new Date()
 
     // Combine room_types and custom_features into extra_features JSON
     let extraFeatures = null;
@@ -167,18 +171,19 @@ export async function POST(request: NextRequest) {
     }
 
     await query(
-      `INSERT INTO properties (
-        id, landlord_id, title, description, property_type, status, address, city, state, country,
-        bedrooms, bathrooms, area_sqft, rent_amount, currency, security_deposit, is_furnished,
-        parking_spaces, amenities, media, available_from, min_lease_months, pet_policy, is_published,
-        extra_features, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, 'available', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, NOW(), NOW())`,
+      `INSERT INTO "properties" (
+        "id", "landlord_id", "title", "description", "property_type", "status", "address", "city", "state", "country",
+        "bedrooms", "bathrooms", "area_sqft", "rent_amount", "currency", "security_deposit", "is_furnished",
+        "parking_spaces", "amenities", "media", "available_from", "min_lease_months", "pet_policy", "is_published",
+        "extra_features", "created_at", "updated_at"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)`,
       [
         propertyId,
         session.userId,
         data.title,
         data.description || null,
         data.property_type || "apartment",
+        "available",
         data.address,
         data.city,
         data.state,
@@ -196,15 +201,19 @@ export async function POST(request: NextRequest) {
         data.available_from || null,
         data.min_lease_months || 12,
         data.pet_policy || "not_allowed",
+        true,
         extraFeatures,
+        now.toISOString(),
+        now.toISOString()
       ]
     )
 
     // Fetch the created property
-    const property = await queryOne(
-      "SELECT * FROM properties WHERE id = ?",
+    const result = await query(
+      `SELECT * FROM "properties" WHERE "id" = $1`,
       [propertyId]
     )
+    const property = result.rows[0]
 
     // Parse JSON fields to match GET format
     const formattedProperty = property ? {
