@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Test API endpoints",
+			"type": "shell",
+			"command": "curl -I http://localhost:3000/api/properties",
+			"args": [],
+			"isBackground": false,
+			"group": "test"
+		}
+	]
+}
