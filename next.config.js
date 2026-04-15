@@ -5,7 +5,4 @@ module.exports = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    turbopack: false,
-  },
 };

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { Suspense, useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -56,7 +56,7 @@ const TIER_CONFIG: Record<SubscriptionTier, TierConfig> = {
   },
 }
 
-export default function UpgradePaymentPage() {
+function UpgradePaymentContent() {
   const searchParams = useSearchParams()
   const initialTier = (searchParams?.get("tier") as SubscriptionTier) || "silver"
   const [tier, setTier] = useState<SubscriptionTier>(initialTier)
@@ -182,5 +182,13 @@ export default function UpgradePaymentPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function UpgradePaymentPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" />}>
+      <UpgradePaymentContent />
+    </Suspense>
   )
 }
